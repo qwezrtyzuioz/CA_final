@@ -84,7 +84,11 @@ void convLayerGPU(int* ifm, int* ifilt, int* ofm)
 		offset,										// Start point of iteration.
 		filt_index,									// Index for filter.
 		fm_index,									// Index for feature map.
+		fm_ul,										// Upper left point of a sliding window
+		sum,										// For inner product
 		i, j,										// iterator
+		fmx, fmy,									// iterator, on feature map.
+		row, col,									// iterator, on filter.
 		temp;										// Temporary storage.
 
 	// ------------------------------------------------------------------------------
@@ -138,7 +142,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* ofm)
 		}
 	}
 	// Lower side zero padding.
-	else if (filt_num < FMSIZE + pad_width * 2)
+	else if (filt_num < FMSIZE + pad_width * 2){
 		for (i = 0; i < pad_size; ++i){
 			fm_index = offset + i;
 			fm[fm_index] = 0;
@@ -158,7 +162,22 @@ void convLayerGPU(int* ifm, int* ifilt, int* ofm)
 	// ------------------------------------------------------------------------------
 	//   Inner product
 	// ------------------------------------------------------------------------------
+	
+	offset = filt_num * filt_area;
+	for (fmy = pad_width; fmy < FMSIZE + pad_widht; ++fmy){
+		for (fmx = pad_width; fmx < FMSIZE + pad_widht; ++fmx){
 
+			fm_ul = (fmy - pad_width)* pad_size + fmx;
+			sum = 0;
+			for (row = 0; i < FILTSIZE; ++i){
+				for (col = 0; j < FILTSIZE; ++j){
+					fm_index = fm_ul + pad_width* row + col;
+					filt_index = offset + row * FILTSIZE + col;
+					sum += fm[fm_index] * filt[filt_index];
+				}
+			}
+		}
+	}
 
 }
 /***	Implement your CUDA Kernel here	***/
