@@ -130,10 +130,10 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 			fm[fm_index] = 0;
 		}
 		// Fill the feature map from input argument.
-		temp = filt_num * FMSIZE;
+		temp = (filt_num - pad_width) * FMSIZE;
 		for (i = pad_width; i < FMSIZE + pad_width; ++i){
 			fm_index = offset + i;
-			fm[fm_index] = ifm[depth * fm_area + temp + i];
+			fm[fm_index] = ifm[depth * fm_area + temp + i - pad_width];
 		}
 		// Padding at the ending.
 		for (i = FMSIZE + pad_width; i < pad_size; ++i){
@@ -142,7 +142,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 		}
 	}
 	// Lower side zero padding.
-	else if (filt_num < FMSIZE + pad_width * 2){
+	else if (filt_num < pad_size){
 		for (i = 0; i < pad_size; ++i){
 			fm_index = offset + i;
 			fm[fm_index] = 0;
@@ -151,7 +151,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 
 	// Fill 128 corresponding filters.
 	// Using all 128 thread.
-	offset = filt_num * filt_area;
+	offset = filt_num * filt_vol + depth * filt_area;
 	for (int i = 0, i < filt_vol; ++i){
 		filt_index = offset + i;
 		filt[filt_index] = ifilt[depth * filt_vol + filt_index];
