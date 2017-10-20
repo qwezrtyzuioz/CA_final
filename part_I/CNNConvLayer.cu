@@ -68,7 +68,7 @@ void convLayerCPU()
 
 /***	Implement your CUDA Kernel here	***/
 __global__
-void convLayerGPU(int* ifm, int* ifilt, int* ofm)
+void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 {
 	// ------------------------------------------------------------------------------
 	//   Variables declaration
@@ -204,7 +204,7 @@ clock_gettime(CLOCK_REALTIME, &time_end);
 clock_gettime(CLOCK_REALTIME, &time_begin);
 	/***	Lunch your CUDA Kernel here	***/
 
-	convLayerGPU << <FMDEPTH, FILTNUM >> >(outNeu); // Lunch the kernel
+	convLayerGPU << <FMDEPTH, FILTNUM >> >(inNeu, filt, outNeu, GPUout); // Lunch the kernel
 	cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 
 	/***	Lunch your CUDA Kernel here	***/
