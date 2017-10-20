@@ -3,7 +3,7 @@
 #include "CNNConvLayer.h"
 using namespace std;
 
-// This is the CPU version, please don't modify it
+// This is the CPU version, please don't modify it dsfsdfdsf
 void convLayerCPU()
 {
 	// declarations for bunch of indexing parameters
