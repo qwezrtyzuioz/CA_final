@@ -74,13 +74,17 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	//   Variables declaration
 	// ------------------------------------------------------------------------------
 
-	int depth = blockIdx.x,							// The depth this block deal with.
+	const int
+		depth = blockIdx.x,							// The depth this block deal with.
 		filt_num = threadId.x,						// The filter this thread deal with.
 		fm_area = FMSIZE * FMSIZE,					// Area of one feature map.
 		pad_width = FILTSIZE / 2,					// Padding width
 		pad_size = FMSIZE + pad_width * 2,			// Size of feature map after padding.
+		pad_area = pad_size * pad_size,				// Area of featrue map after padding.
 		filt_vol = FMDEPTH * FILTSIZE * FILTSIZE,	// Volume of 128 filters.(one depth)
 		filt_area = FILTSIZE * FILTSIZE,			// Area of one filter.
+		share_filt_size = FILTNUM* filt_area;		// Size of filters share memory. 
+	int
 		offset,										// Start point of iteration.
 		filt_index,									// Index for filter.
 		fm_index,									// Index for feature map.
@@ -95,8 +99,8 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	//   Share memory Declaration
 	// ------------------------------------------------------------------------------
 
-	__share__ int fm[pad_size * pad_size];				// Feature map with specific depth,
-	__share__ int filt[FILTNUM* FILTSIZE* FILTSIZE];	// 128 filter corresponding to the depth.
+	__share__ int fm[pad_area];							// Feature map with specific depth,
+	__share__ int filt[share_filt_size];	// 128 filter corresponding to the depth.
 
 	// ------------------------------------------------------------------------------
 	//   Share memory initialization
