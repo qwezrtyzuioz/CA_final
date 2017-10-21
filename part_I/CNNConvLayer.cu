@@ -76,7 +76,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 
 	const int
 		depth = blockIdx.x,							// The depth this block deal with.
-		filt_num = threadId.x,						// The filter this thread deal with.
+		filt_num = threadIdx.x,						// The filter this thread deal with.
 		fm_area = FMSIZE * FMSIZE,					// Area of one feature map.
 		pad_width = FILTSIZE / 2,					// Padding width
 		pad_size = FMSIZE + pad_width * 2,			// Size of feature map after padding.
@@ -99,8 +99,8 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	//   Share memory Declaration
 	// ------------------------------------------------------------------------------
 
-	__share__ int fm[pad_area];							// Feature map with specific depth,
-	__share__ int filt[share_filt_size];	// 128 filter corresponding to the depth.
+	__shared__ int fm[pad_area];							// Feature map with specific depth,
+	__shared__ int filt[share_filt_size];	// 128 filter corresponding to the depth.
 
 	// ------------------------------------------------------------------------------
 	//   Share memory initialization
@@ -116,7 +116,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	// Fill the input feature map.
 	// Using pad_size number of thread to fill the matrix.
 
-	offset = filt_nun * pad_size;
+	offset = filt_num * pad_size;
 
 	// Upper side zero padding.
 	if (filt_num < pad_width){
@@ -157,7 +157,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	// Using all 128 thread.
 	offset = filt_num * filt_vol + depth * filt_area;
 	for (int i = 0; i < filt_area; ++i){
-		filt_index = filt_num * filt_area + i
+		filt_index = filt_num * filt_area + i;	
 		filt[filt_index] = ifilt[offset + i];
 	}
 
@@ -168,8 +168,8 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	// ------------------------------------------------------------------------------
 	
 	offset = filt_num * filt_area;
-	for (fmy = pad_width; fmy < FMSIZE + pad_widht; ++fmy){
-		for (fmx = pad_width; fmx < FMSIZE + pad_widht; ++fmx){
+	for (fmy = pad_width; fmy < FMSIZE + pad_width; ++fmy){
+		for (fmx = pad_width; fmx < FMSIZE + pad_width; ++fmx){
 
 			// Envalue the upper and left point of the ROI.
 			fm_ul = (fmy - pad_width)* pad_size + fmx;
@@ -212,7 +212,7 @@ clock_gettime(CLOCK_REALTIME, &time_end);
 clock_gettime(CLOCK_REALTIME, &time_begin);
 	/***	Lunch your CUDA Kernel here	***/
 
-	convLayerGPU << <FMDEPTH, FILTNUM >> >(inNeu, filt, outNeu, GPUout); // Lunch the kernel
+	convLayerGPU << <FMDEPTH, FILTNUM >> >(inNeu, filt, outNeu, outGPU); // Lunch the kernel
 	cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 
 	/***	Lunch your CUDA Kernel here	***/
