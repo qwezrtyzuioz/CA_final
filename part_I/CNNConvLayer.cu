@@ -3,7 +3,7 @@
 #include "CNNConvLayer.h"
 using namespace std;
 
-// This is the CPU version, please don't modify it
+// This is the CPU version, please don't modify it dsfsdfdsf
 void convLayerCPU()
 {
 	// declarations for bunch of indexing parameters
@@ -154,7 +154,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	offset = filt_num * filt_vol + depth * filt_area;
 	for (int i = 0; i < filt_area; ++i){
 		filt_index = offset + i;
-		filt[filt_index] = ifilt[depth * filt_vol + filt_index];
+		filt[filt_num*filt_area+i] = ifilt[offset + i];
 	}
 
 	__syncthreads();	// End of share memory initialization.
