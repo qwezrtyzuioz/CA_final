@@ -24,22 +24,22 @@ void init()
 {
 	ifstream ifs;
 	string str;
-
+	
 	int inNeuIdx, filtIdx;
 	int tmp;
 	int outNeuVol = FILTNUM * FMSIZE * FMSIZE;
 	int outVol = FILTNUM * FMSIZE/3 * FMSIZE/3;
-
+	
 	inNeu = new int[FMSIZE*FMSIZE*FMDEPTH]();
 	ifs.open("data/neuron.txt", ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the neurons input file\n";
 	}
-
+	
 	for(int i = 0 ; i < FMDEPTH ; i++){
-		ifs >> str;
-		for(int j = 0 ; j < FMSIZE ; j++){
-			for(int k = 0 ; k < FMSIZE ; k++){
+		ifs >> str; 
+		for(int j = 0 ; j < FMSIZE ; j++){ 
+			for(int k = 0 ; k < FMSIZE ; k++){ 
 				ifs >> tmp;
 				inNeuIdx = i*FMSIZE*FMSIZE + j*FMSIZE + k;
 				inNeu[inNeuIdx] = tmp;
@@ -47,17 +47,17 @@ void init()
 		}
 	}
 	ifs.close();
-
-
+				
+		
 	filt = new int[FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM]();
 	ifs.open("data/filter.txt", ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the filters input file\n";
 	}
-
-	for(int i=0 ; i<FILTNUM ; i++){
-		for(int j = 0 ; j < FMDEPTH ; j++){
-			ifs >> str >> str >> str;
+	
+	for(int i=0 ; i<FILTNUM ; i++){ 
+		for(int j = 0 ; j < FMDEPTH ; j++){	
+			ifs >> str >> str >> str; 
 			for(int k=0 ; k<FILTSIZE ; k++){
 				for(int l=0 ; l<FILTSIZE ; l++){
 					ifs >> tmp;
@@ -65,7 +65,7 @@ void init()
 					filt[filtIdx] = tmp;
 				}
 			}
-		}
+		}	
 	}
 	ifs.close();
 
@@ -79,7 +79,7 @@ void initGPU(){
 	cudaMalloc(&dev_ifilt, FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM);
 	cudaMalloc(&dev_outGPU, FILTNUM * FMSIZE/3 * FMSIZE/3);
 	cudaMalloc(&dev_outNeu, FILTNUM * FMSIZE * FMSIZE);
-
+	
 	cudaMemcpy(dev_ifm, inNeu, FMSIZE*FMSIZE*FMDEPTH, cudaMemcpyHostToDevice);
 	cudaMemcpy(dev_ifilt, filt, FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM, cudaMemcpyHostToDevice);
 	cudaMemset(&dev_outNeu,0,FILTNUM * FMSIZE * FMSIZE);
@@ -97,7 +97,7 @@ void ending()
 bool checker(){
 	int outVol = FILTNUM * FMSIZE/3 * FMSIZE/3;
 
-	for(int i = 0; i < outVol; i++){
+	for(int i = 0; i < outVol; i++){ 
 		if(  outCPU[i] != outGPU[i]   ){
 			cout << "The element: " << i << " is wrong!\n";
 			cout << "outCPU[" << i << "] = " << outCPU[i] << endl;
@@ -109,6 +109,6 @@ bool checker(){
 }
 
 int timespec_diff_us(timespec& t1, timespec& t2)
-{
-	return (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_nsec - t1.tv_nsec) / 1e3;
-}
+{                                                                                
+  return (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_nsec - t1.tv_nsec) / 1e3;        
+} 
