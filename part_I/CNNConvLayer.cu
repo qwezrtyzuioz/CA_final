@@ -152,7 +152,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	// Fill 128 corresponding filters.
 	// Using all 128 thread.
 	offset = filt_num * filt_vol + depth * filt_area;
-	for (int i = 0, i < filt_area; ++i){
+	for (int i = 0; i < filt_area; ++i){
 		filt_index = offset + i;
 		filt[filt_index] = ifilt[depth * filt_vol + filt_index];
 	}
@@ -167,10 +167,14 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	for (fmy = pad_width; fmy < FMSIZE + pad_widht; ++fmy){
 		for (fmx = pad_width; fmx < FMSIZE + pad_widht; ++fmx){
 
+			// Envalue the upper and left point of the ROI.
 			fm_ul = (fmy - pad_width)* pad_size + fmx;
 			sum = 0;
+
+			// For each point in ROI.
 			for (row = 0; i < FILTSIZE; ++i){
 				for (col = 0; j < FILTSIZE; ++j){
+
 					fm_index = fm_ul + pad_width* row + col;
 					filt_index = offset + row * FILTSIZE + col;
 					sum += fm[fm_index] * filt[filt_index];
