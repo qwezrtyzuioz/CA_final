@@ -153,13 +153,8 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 	// Using all 128 thread.
 	offset = filt_num * filt_vol + depth * filt_area;
 	for (int i = 0; i < filt_area; ++i){
-<<<<<<< HEAD
 		filt_index = filt_num * filt_area + i
 		filt[filt_index] = ifilt[offset + i];
-=======
-		filt_index = offset + i;
-		filt[filt_num*filt_area+i] = ifilt[offset + i];
->>>>>>> 5d943cbad563e3545473a65d51263b73f804ab4b
 	}
 
 	__syncthreads();	// End of share memory initialization.
