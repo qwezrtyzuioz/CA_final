@@ -3,6 +3,7 @@
 #include "CNNConvLayer.h"
 using namespace std;
 
+
 // This is the CPU version, please don't modify it
 void convLayerCPU()
 {
@@ -82,8 +83,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
             pad_size = FMSIZE + pad_width * 2,			// Size of feature map after padding.
             pad_area = pad_size * pad_size,				// Area of featrue map after padding.
             filt_vol = FMDEPTH * FILTSIZE * FILTSIZE,	// Volume of 128 filters.(one depth)
-            filt_area = FILTSIZE * FILTSIZE,			// Area of one filter.
-            share_filt_size = FILTNUM* filt_area;		// Size of filters share memory.
+            filt_area = FILTSIZE * FILTSIZE;			// Area of one filter.
     int
             offset,										// Start point of iteration.
             filt_index,									// Index for filter.
@@ -95,28 +95,28 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
             row, col,									// iterator, on filter.
             temp;										// Temporary storage.
 
+    int filt[filt_area];	// 128 filter corresponding to the depth.
+
+
     // ------------------------------------------------------------------------------
     //   Share memory Declaration
     // ------------------------------------------------------------------------------
 
     __shared__ int fm[pad_area];							// Feature map with specific depth,
-    __shared__ int filt[share_filt_size];	// 128 filter corresponding to the depth.
 
     // ------------------------------------------------------------------------------
     //   Share memory initialization
     // ------------------------------------------------------------------------------
     /*
-     * 1. Global input feature maps and filters store in "depth0, depth1.....depth n"
-     *    order. We will copy on of depth into share memory called fm.
-     * 2. One depth of filters set including 128 filters. We will copy one depth ( 128
-     *    filters ) into share memory called filt.
-     * 3. Also do padding.
+     * 1. Global input feature maps store in "depth0, depth1.....depth n" order.
+     *    We will copy on of depth into share memory called fm.
+     * 2. Also do padding.
      */
 
     // Fill the input feature map.
     // Using pad_size number of thread to fill the matrix.
 
-    offset = filt_nun * pad_size;
+    offset = filt_num * pad_size;
 
     // Upper side zero padding.
     if (filt_num < pad_width){
@@ -153,12 +153,19 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
         }
     }
 
+    // ------------------------------------------------------------------------------
+    //   Local memory initialization
+    // ------------------------------------------------------------------------------
+    /*
+     * 1. Global input filters store in "depth0, depth1.....depth n" order.
+     * 2. One kind of filter include 96 depth. Total 128 kind of filter.
+     */
+
     // Fill 128 corresponding filters.
     // Using all 128 thread.
     offset = filt_num * filt_vol + depth * filt_area;
     for (int i = 0; i < filt_area; ++i){
-        filt_index = filt_num * filt_area + i
-        filt[filt_index] = ifilt[offset + i];
+        filt[i] = ifilt[offset + i];
     }
 
     __syncthreads();	// End of share memory initialization.
@@ -168,11 +175,11 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
     // ------------------------------------------------------------------------------
 
     offset = filt_num * filt_area;
-    for (fmy = pad_width; fmy < FMSIZE + pad_widht; ++fmy){
-        for (fmx = pad_width; fmx < FMSIZE + pad_widht; ++fmx){
+    for (fmy = 0; fmy < FMSIZE ; ++fmy){
+        for (fmx = 0; fmx < FMSIZE ; ++fmx){
 
-            // Envalue the upper and left point of the ROI.
-            fm_ul = (fmy - pad_width)* pad_size + fmx;
+            // Envalue the index of upper and left point of the ROI.
+            fm_ul = fmy * pad_size + fmx;
             sum = 0;
 
             // For each point in ROI.
@@ -184,8 +191,10 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
                     sum += fm[fm_index] * filt[filt_index];
                 }
             }
+            atomicAdd(&outNeu[threadIdx.x * fm_area + fmy*FILTSIZE + fmx],sum);
         }
     }
+
 
 }
 /***	Implement your CUDA Kernel here	***/
@@ -196,7 +205,7 @@ int main()
     timespec time_begin, time_end;
     int convLayerCPUExecTime, convLayerGPUExecTime;
     init();
-
+    initGPU();
 
     //Convolution by CPU
     clock_gettime(CLOCK_REALTIME, &time_begin);
@@ -212,7 +221,7 @@ int main()
     clock_gettime(CLOCK_REALTIME, &time_begin);
     /***	Lunch your CUDA Kernel here	***/
 
-    convLayerGPU << <FMDEPTH, FILTNUM >> >(inNeu, filt, outNeu, GPUout); // Lunch the kernel
+    convLayerGPU << <FMDEPTH, FILTNUM >> >(dev_ifm, dev_ifilt, dev_outNeu, dev_outGPU); // Lunch the kernel
     cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 
     /***	Lunch your CUDA Kernel here	***/

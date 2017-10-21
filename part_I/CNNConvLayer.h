@@ -16,6 +16,10 @@ int*outNeu;
 int*outCPU;
 int*outGPU;
 
+int* dev_ifm;
+int* dev_ifilt;
+int* dev_outNeu;
+int* dev_outGPU;
 void init()
 {
 	ifstream ifs;
@@ -69,6 +73,16 @@ void init()
 	outCPU = new int[outVol]();
 	outGPU = new int[outVol]();
 
+}
+void initGPU(){
+	cudaMalloc(&dev_ifm, FILTSIZE*FILTSIZE*FMDEPTH);
+	cudaMalloc(&dev_ifilt, FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM);
+	cudaMalloc(&dev_outGPU, FILTNUM * FMSIZE/3 * FMSIZE/3);
+	cudaMalloc(&dev_outNeu, FILTNUM * FMSIZE * FMSIZE);
+
+	cudaMemcpy(dev_ifm, inNeu, FMSIZE*FMSIZE*FMDEPTH, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_ifilt, filt, FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM, cudaMemcpyHostToDevice);
+	cudaMemset(&dev_outNeu,0,FILTNUM * FMSIZE * FMSIZE);
 }
 
 void ending()
