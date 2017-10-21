@@ -16,6 +16,10 @@ int*outNeu;
 int*outCPU;
 int*outGPU;
 
+int* dev_ifm;
+int* dev_ifilt;
+int* dev_outNeu;
+int* dev_outGPU;
 void init()
 {
 	ifstream ifs;
@@ -24,18 +28,18 @@ void init()
 	int inNeuIdx, filtIdx;
 	int tmp;
 	int outNeuVol = FILTNUM * FMSIZE * FMSIZE;
-	int outVol = FILTNUM * FMSIZE / 3 * FMSIZE / 3;
+	int outVol = FILTNUM * FMSIZE/3 * FMSIZE/3;
 
 	inNeu = new int[FMSIZE*FMSIZE*FMDEPTH]();
 	ifs.open("data/neuron.txt", ifstream::in);
-	if (!ifs.is_open()){
+	if(!ifs.is_open()){
 		cout << "Can not open the neurons input file\n";
 	}
 
-	for (int i = 0; i < FMDEPTH; i++){
+	for(int i = 0 ; i < FMDEPTH ; i++){
 		ifs >> str;
-		for (int j = 0; j < FMSIZE; j++){
-			for (int k = 0; k < FMSIZE; k++){
+		for(int j = 0 ; j < FMSIZE ; j++){
+			for(int k = 0 ; k < FMSIZE ; k++){
 				ifs >> tmp;
 				inNeuIdx = i*FMSIZE*FMSIZE + j*FMSIZE + k;
 				inNeu[inNeuIdx] = tmp;
@@ -47,17 +51,17 @@ void init()
 
 	filt = new int[FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM]();
 	ifs.open("data/filter.txt", ifstream::in);
-	if (!ifs.is_open()){
+	if(!ifs.is_open()){
 		cout << "Can not open the filters input file\n";
 	}
 
-	for (int i = 0; i<FILTNUM; i++){
-		for (int j = 0; j < FMDEPTH; j++){
+	for(int i=0 ; i<FILTNUM ; i++){
+		for(int j = 0 ; j < FMDEPTH ; j++){
 			ifs >> str >> str >> str;
-			for (int k = 0; k<FILTSIZE; k++){
-				for (int l = 0; l<FILTSIZE; l++){
+			for(int k=0 ; k<FILTSIZE ; k++){
+				for(int l=0 ; l<FILTSIZE ; l++){
 					ifs >> tmp;
-					filtIdx = i*FMDEPTH*FILTSIZE*FILTSIZE + j*FILTSIZE*FILTSIZE + k*FILTSIZE + l;
+					filtIdx = i*FMDEPTH*FILTSIZE*FILTSIZE + j*FILTSIZE*FILTSIZE	+ k*FILTSIZE + l;
 					filt[filtIdx] = tmp;
 				}
 			}
@@ -70,21 +74,31 @@ void init()
 	outGPU = new int[outVol]();
 
 }
+void initGPU(){
+	cudaMalloc(&dev_ifm, FILTSIZE*FILTSIZE*FMDEPTH);
+	cudaMalloc(&dev_ifilt, FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM);
+	cudaMalloc(&dev_outGPU, FILTNUM * FMSIZE/3 * FMSIZE/3);
+	cudaMalloc(&dev_outNeu, FILTNUM * FMSIZE * FMSIZE);
+
+	cudaMemcpy(dev_ifm, inNeu, FMSIZE*FMSIZE*FMDEPTH, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_ifilt, filt, FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM, cudaMemcpyHostToDevice);
+	cudaMemset(&dev_outNeu,0,FILTNUM * FMSIZE * FMSIZE);
+}
 
 void ending()
 {
-	delete[] filt;
-	delete[] inNeu;
-	delete[] outNeu;
-	delete[] outCPU;
-	delete[] outGPU;
+	delete [] filt;
+	delete [] inNeu;
+	delete [] outNeu;
+	delete [] outCPU;
+	delete [] outGPU;
 }
 
 bool checker(){
-	int outVol = FILTNUM * FMSIZE / 3 * FMSIZE / 3;
+	int outVol = FILTNUM * FMSIZE/3 * FMSIZE/3;
 
-	for (int i = 0; i < outVol; i++){
-		if (outCPU[i] != outGPU[i]){
+	for(int i = 0; i < outVol; i++){
+		if(  outCPU[i] != outGPU[i]   ){
 			cout << "The element: " << i << " is wrong!\n";
 			cout << "outCPU[" << i << "] = " << outCPU[i] << endl;
 			cout << "outGPU[" << i << "] = " << outGPU[i] << endl;
