@@ -82,7 +82,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* outNeu, int* outGPU)
 		pad_size = FMSIZE + pad_width * 2,			// Size of feature map after padding.
 		pad_area = pad_size * pad_size,				// Area of featrue map after padding.
 		filt_vol = FMDEPTH * FILTSIZE * FILTSIZE,	// Volume of 128 filters.(one depth)
-		filt_area = FILTSIZE * FILTSIZE,			// Area of one filter.
+		filt_area = FILTSIZE * FILTSIZE;			// Area of one filter.
 	int
 		offset,										// Start point of iteration.
 		filt_index,									// Index for filter.
