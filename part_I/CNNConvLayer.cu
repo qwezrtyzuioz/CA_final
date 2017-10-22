@@ -104,7 +104,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* dev_outNeu, int* dev_outGPU)
 	// ------------------------------------------------------------------------------
 
 	__shared__ int fm[pad_area];
-	
+	__syncthreads();
 	// ------------------------------------------------------------------------------
 	//   Share memory initialization
 	// ------------------------------------------------------------------------------
@@ -163,6 +163,7 @@ void convLayerGPU(int* ifm, int* ifilt, int* dev_outNeu, int* dev_outGPU)
 	 * 2. One kind of filter include 96 depth. Total 128 kind of filter.
 	 */
 
+	// Using all 128 thread.
 	offset = filt_num * filt_vol + depth * filt_area;
 	for (int i = 0; i < filt_area; ++i){
 		filt[i] = ifilt[offset + i];
@@ -194,7 +195,33 @@ void convLayerGPU(int* ifm, int* ifilt, int* dev_outNeu, int* dev_outGPU)
 		}
 	}
 	
-	__syncthreads();
+	
+}
+/***	Implement your CUDA Kernel here	***/
+__global__
+void Activation_Pooling_GPU(int* dev_outNeu, int* dev_outGPU){
+	const int
+		depth = blockIdx.x,							// The depth this block deal with.
+		filt_num = threadIdx.x,						// The filter this thread deal with.
+		fm_area = FMSIZE * FMSIZE,					// Area of one feature map.
+		pad_width = FILTSIZE / 2,					// Padding width
+		pad_size = FMSIZE + pad_width * 2,			// Size of feature map after padding.
+		pad_area = pad_size * pad_size,				// Area of featrue map after padding.
+		filt_vol = FMDEPTH * FILTSIZE * FILTSIZE,	// Volume of 128 filters.(one depth)
+		filt_area = FILTSIZE * FILTSIZE,			// Area of one filter.
+		out_area = (FMSIZE / 3) * (FMSIZE / 3);
+	int
+		offset,										// Start point of iteration.
+		filt_index,									// Index for filter.
+		fm_index,									// Index for feature map.
+		fm_ul,										// Upper left point of a sliding window
+		sum,										// For inner product
+		i, j,										// iterator
+		fmx, fmy,									// iterator, on feature map.
+		row, col,									// iterator, on filter.
+		temp;										// Temporary storage.
+
+	int filt[FILTSIZE * FILTSIZE];	// 128 filter corresponding to the depth.
 	
 	// Activation - ReLU
 	if( blockIdx.x < 64) {
@@ -237,9 +264,8 @@ void convLayerGPU(int* ifm, int* ifilt, int* dev_outNeu, int* dev_outGPU)
 			}
 		}
 	}
-}
-/***	Implement your CUDA Kernel here	***/
 
+}
 int main()
 {
 	//variables setting and loading input data
@@ -265,22 +291,19 @@ int main()
 	cout<< endl;
 	dim3 numBlocks(FMDEPTH);
 	dim3 threadsPerBlock(FILTNUM);
-	// Lunch the kernel
-	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_ifm, dev_ifilt, dev_outNeu, dev_outGPU); 
+	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_ifm, dev_ifilt, dev_outNeu, dev_outGPU); // Lunch the kernel
+	cout<<"cudaDeviceSynchronize: "<< cudaGetErrorString(cudaDeviceSynchronize())<< endl; // Do synchronization before clock_gettime()
 	
-	// Do synchronization before clock_gettime()
-	cout<<"cudaDeviceSynchronize: "<< cudaGetErrorString(cudaDeviceSynchronize())<< endl; 
-	
+	Activation_Pooling_GPU<<<numBlocks, threadsPerBlock>>>(dev_outNeu, dev_outGPU);
 	cout<<"cudaMemcpy:"<< cudaGetErrorString(cudaMemcpy(outGPU, dev_outGPU,
 														sizeof(int)* FILTNUM * FMSIZE/3 * FMSIZE/3,
 														cudaMemcpyDeviceToHost)) << endl;
 	cout<<"cudaDeviceSynchronize: "<< cudaGetErrorString(cudaDeviceSynchronize())<< endl;
-	
-	cout<< endl;
-	for(int i = 800;i<900;++i){
+	for(int i = 0;i<100;++i){
 		cout<<outGPU[i]<<" "; 
 	}
 	cout<<endl;
+	
 	
 	
 	/***	Lunch your CUDA Kernel here	***/
