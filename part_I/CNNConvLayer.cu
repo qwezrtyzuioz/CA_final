@@ -272,7 +272,7 @@ int main()
 	timespec time_begin, time_end;
 	int convLayerCPUExecTime, convLayerGPUExecTime;
 	init();
-	initGPU();
+	cudaFree(0);
 
 	//Convolution by CPU                                                
 	clock_gettime(CLOCK_REALTIME, &time_begin);
@@ -288,24 +288,18 @@ int main()
 	clock_gettime(CLOCK_REALTIME, &time_begin);
 	/***	Lunch your CUDA Kernel here	***/
 	
-	cout<< endl;
+	initGPU();
 	dim3 numBlocks(FMDEPTH);
 	dim3 threadsPerBlock(FILTNUM);
 	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_ifm, dev_ifilt, dev_outNeu, dev_outGPU); // Lunch the kernel
-	cout<<"cudaDeviceSynchronize: "<< cudaGetErrorString(cudaDeviceSynchronize())<< endl; // Do synchronization before clock_gettime()
+	cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 	
 	Activation_Pooling_GPU<<<numBlocks, threadsPerBlock>>>(dev_outNeu, dev_outGPU);
-	cout<<"cudaMemcpy:"<< cudaGetErrorString(cudaMemcpy(outGPU, dev_outGPU,
-														sizeof(int)* FILTNUM * FMSIZE/3 * FMSIZE/3,
-														cudaMemcpyDeviceToHost)) << endl;
-	cout<<"cudaDeviceSynchronize: "<< cudaGetErrorString(cudaDeviceSynchronize())<< endl;
-	for(int i = 0;i<100;++i){
-		cout<<outGPU[i]<<" "; 
-	}
-	cout<<endl;
-	
-	
-	
+	cudaMemcpy(outGPU, dev_outGPU,
+			sizeof(int)* FILTNUM * FMSIZE/3 * FMSIZE/3,
+			cudaMemcpyDeviceToHost);
+	cudaDeviceSynchronize();
+
 	/***	Lunch your CUDA Kernel here	***/
 	clock_gettime(CLOCK_REALTIME, &time_end);
 	convLayerGPUExecTime = timespec_diff_us(time_begin, time_end);

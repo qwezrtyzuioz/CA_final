@@ -82,21 +82,17 @@ void init()
 }
 void initGPU(){
 	 
-	cout<<"cudaMalloc: "<< cudaGetErrorString(cudaMalloc(&dev_outNeu, sizeof(int)*FILTNUM * FMSIZE * FMSIZE))<< endl;
-	cout<<"cudaMalloc: "<< cudaGetErrorString(cudaMalloc(&dev_ifm, sizeof(int)*FMSIZE*FMSIZE*FMDEPTH))<< endl;
-	cout<<"cudaMalloc: "<< cudaGetErrorString(cudaMalloc(&dev_ifilt, sizeof(int)*FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM))<< endl;
-	cout<<"cudaMalloc: "<< cudaGetErrorString(cudaMalloc(&dev_outGPU, sizeof(int)*FILTNUM * OUTAREA))<< endl;
+	cudaMalloc(&dev_outNeu, sizeof(int)*FILTNUM * FMSIZE * FMSIZE);
+	cudaMalloc(&dev_ifm, sizeof(int)*FMSIZE*FMSIZE*FMDEPTH);
+	cudaMalloc(&dev_ifilt, sizeof(int)*FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM);
+	cudaMalloc(&dev_outGPU, sizeof(int)*FILTNUM * OUTAREA);
 	
 	
-	cout<<"cudaMemcpy: "<< cudaGetErrorString(cudaMemcpy(dev_ifm, inNeu, sizeof(int)*FMSIZE*FMSIZE*FMDEPTH, cudaMemcpyHostToDevice)) <<endl;
-	cout<<"cudaMemcpy: "<< cudaGetErrorString(cudaMemcpy(dev_ifilt, filt, sizeof(int)*FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM, cudaMemcpyHostToDevice))<< endl;
-	cout<<"cudaMemset: "<< cudaGetErrorString(cudaMemset(dev_outNeu,0,sizeof(int)*FILTNUM * FMSIZE * FMSIZE))<< endl;
+	cudaMemcpy(dev_ifm, inNeu, sizeof(int)*FMSIZE*FMSIZE*FMDEPTH, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_ifilt, filt, sizeof(int)*FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM, cudaMemcpyHostToDevice);
+	cudaMemset(dev_outNeu,0,sizeof(int)*FILTNUM * FMSIZE * FMSIZE);
 	
-	outNeu2 = new int[FILTNUM * FMSIZE * FMSIZE]();
-	inNeu2 = new int[FMSIZE*FMSIZE*FMDEPTH]();
-	filt2 = new int[FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM]();
-	
-	cout<< "End of GPU initialization" << endl<< endl;
+	//cout<< "End of GPU initialization" << endl<< endl;
 }
 
 void ending()
