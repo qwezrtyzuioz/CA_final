@@ -83,15 +83,14 @@ void convLayerGPU(int* ifm, int* ifilt, int* dev_outNeu, int* dev_outGPU)
 		pad_size = FMSIZE + pad_width * 2,			// Size of feature map after padding.
 		pad_area = pad_size * pad_size,				// Area of featrue map after padding.
 		filt_vol = FMDEPTH * FILTSIZE * FILTSIZE,	// Volume of 128 filters.(one depth)
-		filt_area = FILTSIZE * FILTSIZE,			// Area of one filter.
-		out_area = (FMSIZE / 3) * (FMSIZE / 3);
+		filt_area = FILTSIZE * FILTSIZE;			// Area of one filter.
 	int
 		offset,										// Start point of iteration.
 		filt_index,									// Index for filter.
 		fm_index,									// Index for feature map.
 		fm_ul,										// Upper left point of a sliding window
 		sum,										// For inner product
-		i, j,										// iterator
+		i,											// iterator
 		fmx, fmy,									// iterator, on feature map.
 		row, col,									// iterator, on filter.
 		temp;										// Temporary storage.
@@ -201,78 +200,62 @@ void convLayerGPU(int* ifm, int* ifilt, int* dev_outNeu, int* dev_outGPU)
 __global__
 void Activation_Pooling_GPU(int* dev_outNeu, int* dev_outGPU){
 	const int
-		depth = blockIdx.x,							// The depth this block deal with.
-		filt_num = threadIdx.x,						// The filter this thread deal with.
+		bid = blockIdx.x,							// The depth this block deal with.
+		tid = threadIdx.x,							// The filter this thread deal with.
 		fm_area = FMSIZE * FMSIZE,					// Area of one feature map.
-		pad_width = FILTSIZE / 2,					// Padding width
-		pad_size = FMSIZE + pad_width * 2,			// Size of feature map after padding.
-		pad_area = pad_size * pad_size,				// Area of featrue map after padding.
-		filt_vol = FMDEPTH * FILTSIZE * FILTSIZE,	// Volume of 128 filters.(one depth)
-		filt_area = FILTSIZE * FILTSIZE,			// Area of one filter.
 		out_area = (FMSIZE / 3) * (FMSIZE / 3);
 	int
 		offset,										// Start point of iteration.
-		filt_index,									// Index for filter.
-		fm_index,									// Index for feature map.
-		fm_ul,										// Upper left point of a sliding window
-		sum,										// For inner product
 		i, j,										// iterator
-		fmx, fmy,									// iterator, on feature map.
-		row, col,									// iterator, on filter.
-		temp;										// Temporary storage.
+		max;										// Temporary storage, for max pooling.
 
-	int filt[FILTSIZE * FILTSIZE];	// 128 filter corresponding to the depth.
 	
-	// Activation - ReLU
-	if( blockIdx.x < 64) {
-		if( threadIdx.x < FMSIZE) {
-			for(int i = 0; i< 2; ++i) {
-			offset = blockIdx.x * 2 * fm_area + i * fm_area + threadIdx.x * FMSIZE;
-				for (int j = 0; j< FMSIZE; ++j) {
-					if(dev_outNeu[ offset+ j]<0) {
-						dev_outNeu[offset+ j] = 0;
-					}	
-				}
-			}
+	// ------------------------------------------------------------------------------
+	//   Activation - ReLU
+	// ------------------------------------------------------------------------------
+	/* 
+	 * Use 27 thread to do ReLU. Each thread scan through a row
+	 */
+	
+	if( tid < FMSIZE) {	
+		offset = bid * fm_area + tid * FMSIZE;
+		for (i = 0; i< FMSIZE; ++i) {
+			if(dev_outNeu[offset+ i]<0) {
+				dev_outNeu[offset+ i] = 0;
+			}	
 		}
+		
 	}
 	
 	__syncthreads();
 	
-	// Max Pooling
-	int max;
-	if( blockIdx.x < 64) {
-		if( threadIdx.x < 81) {
-			
-			int grid_row = threadIdx.x/ 9;
-			int grid_col = threadIdx.x% 9;
-			
-			for(int i = 0 ; i < 2; ++i) {
-				
-				//lu point location
-				offset = blockIdx.x * 2 * fm_area + i * fm_area + grid_row * 3 * FMSIZE + grid_col * 3;
-				max = dev_outNeu[offset];
-				
-				for (int j = 0; j < 3; ++j) { 
-					for (int k=0;k<3;++k) {
-						if (dev_outNeu[ offset + j*FMSIZE + k ]>=max) {
-							max = dev_outNeu[ offset + j*FMSIZE + k ];
-						}
-					}	
-				}
-				dev_outGPU[blockIdx.x*2* out_area+i* out_area + threadIdx.x] = max;
-			}
-		}
-	}
+	// ------------------------------------------------------------------------------
+	//   Max Pooling
+	// ------------------------------------------------------------------------------
 
+	int grid_row = tid/ 9;
+	int grid_col = tid% 9;
+	
+	//lu point location
+	offset = bid * fm_area + grid_row * 3 * FMSIZE + grid_col * 3;
+	max = dev_outNeu[offset];
+	
+	for (j = 0 ; j < 3 ; ++j) { 
+		for (int k = 0 ; k < 3 ; ++k) {
+			if (dev_outNeu[ offset + j*FMSIZE + k ]>=max) {
+				max = dev_outNeu[ offset + j * FMSIZE + k ];
+			}
+		}	
+	}
+	dev_outGPU[bid * out_area + tid] = max;
 }
+
 int main()
 {
 	//variables setting and loading input data
 	timespec time_begin, time_end;
 	int convLayerCPUExecTime, convLayerGPUExecTime;
 	init();
-	cudaFree(0);
 
 	//Convolution by CPU                                                
 	clock_gettime(CLOCK_REALTIME, &time_begin);
@@ -283,6 +266,30 @@ int main()
 	convLayerCPUExecTime = timespec_diff_us(time_begin, time_end);
 	cout << "CPU time for executing a typical convolutional layer = " << ((float)convLayerCPUExecTime) / 1000 << "ms" << endl;
 
+	//Check GPU connection
+	cout<< endl;
+	
+	const int num=100;
+    int* g;
+
+    int a[num], b[num];
+    for(int k=0; k<num; k++){
+            a[k]=k;
+            b[k]=0;
+    }
+	
+    cout<< "cudaMalloc : "<< cudaGetErrorString(cudaMalloc((void**) &g, sizeof(int)*num))<< endl;
+    cout<< "cudaMemcpy a => g : "<< cudaGetErrorString(cudaMemcpy(g, a, sizeof(int)*num, cudaMemcpyHostToDevice))<< endl;
+    cout<< "cudaMemcpy g => b : "<< cudaGetErrorString(cudaMemcpy(b, g, sizeof(int)*num, cudaMemcpyDeviceToHost)) << endl;
+
+    for(int k=0; k<num; k++){
+            if(a[k]!=b[k]){
+                    cout << "Fail to ";
+                    break;
+            }
+    }
+    cout<< "Connection Estabilish"<< endl<< endl;
+	
 
 	//Convolution by GPU   
 	clock_gettime(CLOCK_REALTIME, &time_begin);
@@ -294,7 +301,7 @@ int main()
 	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_ifm, dev_ifilt, dev_outNeu, dev_outGPU); // Lunch the kernel
 	cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 	
-	Activation_Pooling_GPU<<<numBlocks, threadsPerBlock>>>(dev_outNeu, dev_outGPU);
+	Activation_Pooling_GPU<<<FILTNUM, 81>>>(dev_outNeu, dev_outGPU);
 	cudaMemcpy(outGPU, dev_outGPU,
 			sizeof(int)* FILTNUM * FMSIZE/3 * FMSIZE/3,
 			cudaMemcpyDeviceToHost);
