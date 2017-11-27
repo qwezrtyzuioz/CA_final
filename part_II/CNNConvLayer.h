@@ -18,20 +18,35 @@ int*outGPU;
 
 int *filtCooNNZ;
 int *filtCooData;
-int *filtCooRow;
-int *filtCooCol;
+unsigned char *filtCooRow;
+unsigned char *filtCooCol;
 int *tmp_filtCooData;
-int *tmp_filtCooRow;
-int *tmp_filtCooCol;
+unsigned char *tmp_filtCooRow;
+unsigned char *tmp_filtCooCol;
 
 int *inNeuCooNNZ;
 int *inNeuCooData;
-int *inNeuCooRow;
-int *inNeuCooCol;
+unsigned char *inNeuCooRow;
+unsigned char *inNeuCooCol;
 int *tmp_inNeuCooData;
-int *tmp_inNeuCooRow;
-int *tmp_inNeuCooCol;
+unsigned char *tmp_inNeuCooRow;
+unsigned char *tmp_inNeuCooCol;
 
+int *dev_inNeuCooNNZ;
+unsigned char *dev_inNeuCooRow;
+unsigned char *dev_inNeuCooCol;
+int *dev_inNeuCooData;
+int *dev_filtCooNNZ;
+int *dev_filtCooData;
+unsigned char *dev_filtCooRow;
+unsigned char *dev_filtCooCol;
+int *dev_filt;
+int *dev_outGPU; 	  
+int *dev_outNeu; 
+//const int GPU_outNeuVol = FILTNUM * (FMSIZE+ 4) * (FMSIZE+ 4);
+
+
+	  
 
 void init()
 {
@@ -96,7 +111,7 @@ void initCoo()
 	int current_nnz;
 	fstream ifs;
 
-	filtCooNNZ = new int [FILTNUM*FMDEPTH];
+	filtCooNNZ = new int [FILTNUM* FMDEPTH+ 1];
 
 	ifs.open("data/filter_COO.txt", ifstream::in);
 	if(!ifs.is_open()){
@@ -112,33 +127,33 @@ void initCoo()
 			ifs >> str; 
 			ifs >> str >> nnz; 
 			idx = i*FMDEPTH + j;
-			filtCooNNZ[idx] = nnz;
+			filtCooNNZ[idx] = current_nnz;
 			
 			if(i == 0 && j==0){
 				filtCooData = new int [nnz];
-				filtCooRow  = new int [nnz];
-				filtCooCol  = new int [nnz];
+				filtCooRow  = new unsigned char [nnz];
+				filtCooCol  = new unsigned char [nnz];
 			}
 			else{
 				tmp_filtCooData = new int [current_nnz];
-				tmp_filtCooRow  = new int [current_nnz];
-				tmp_filtCooCol  = new int [current_nnz];
+				tmp_filtCooRow  = new unsigned char [current_nnz];
+				tmp_filtCooCol  = new unsigned char [current_nnz];
 			
 				memcpy(tmp_filtCooData,filtCooData,sizeof(int)*current_nnz);
-				memcpy(tmp_filtCooRow,filtCooRow,sizeof(int)*current_nnz);
-				memcpy(tmp_filtCooCol,filtCooCol,sizeof(int)*current_nnz);
+				memcpy(tmp_filtCooRow,filtCooRow,sizeof(unsigned char)*current_nnz);
+				memcpy(tmp_filtCooCol,filtCooCol,sizeof(unsigned char)*current_nnz);
 				
 				delete [] filtCooData;
 				delete [] filtCooRow;
 				delete [] filtCooCol;
 				
 				filtCooData = new int [current_nnz+nnz];
-				filtCooRow = new int [current_nnz+nnz];
-				filtCooCol = new int [current_nnz+nnz];
+				filtCooRow = new unsigned char [current_nnz+nnz];
+				filtCooCol = new unsigned char [current_nnz+nnz];
 				
 				memcpy(filtCooData,tmp_filtCooData,sizeof(int)*current_nnz);
-				memcpy(filtCooRow,tmp_filtCooRow,sizeof(int)*current_nnz);
-				memcpy(filtCooCol,tmp_filtCooCol,sizeof(int)*current_nnz);
+				memcpy(filtCooRow,tmp_filtCooRow,sizeof(unsigned char)*current_nnz);
+				memcpy(filtCooCol,tmp_filtCooCol,sizeof(unsigned char)*current_nnz);
 			}
 			
 			ifs >> str ;
@@ -172,13 +187,14 @@ void initCoo()
 		
 		}
 	}
+	filtCooNNZ[FILTNUM* FMDEPTH] = current_nnz;
 	ifs.close();
 	
 	
 	
 
 	current_nnz=0;
-	inNeuCooNNZ = new int [FMDEPTH];
+	inNeuCooNNZ = new int [FMDEPTH+ 1];
 
 	ifs.open("data/neuron_COO.txt", ifstream::in);
 	if(!ifs.is_open()){
@@ -188,33 +204,33 @@ void initCoo()
 	for(i = 0; i < FMDEPTH ; i++){
 		ifs >> str; 
 		ifs >> str >> nnz; 
-		inNeuCooNNZ[i] = nnz;
+		inNeuCooNNZ[i] = current_nnz;
 		
 		if(i == 0){
 				inNeuCooData = new int [nnz];
-				inNeuCooRow  = new int [nnz];
-				inNeuCooCol  = new int [nnz];
+				inNeuCooRow  = new unsigned char [nnz];
+				inNeuCooCol  = new unsigned char [nnz];
 		}
 		else{
 				tmp_inNeuCooData = new int [current_nnz];
-				tmp_inNeuCooRow  = new int [current_nnz];
-				tmp_inNeuCooCol  = new int [current_nnz];
+				tmp_inNeuCooRow  = new unsigned char [current_nnz];
+				tmp_inNeuCooCol  = new unsigned char [current_nnz];
 			
 				memcpy(tmp_inNeuCooData , inNeuCooData , sizeof(int)*current_nnz);
-				memcpy(tmp_inNeuCooRow  , inNeuCooRow  , sizeof(int)*current_nnz);
-				memcpy(tmp_inNeuCooCol  , inNeuCooCol  , sizeof(int)*current_nnz);
+				memcpy(tmp_inNeuCooRow  , inNeuCooRow  , sizeof(unsigned char)*current_nnz);
+				memcpy(tmp_inNeuCooCol  , inNeuCooCol  , sizeof(unsigned char)*current_nnz);
 				
 				delete [] inNeuCooData ;
 				delete [] inNeuCooRow  ;
 				delete [] inNeuCooCol  ;
 				
 				inNeuCooData = new int [current_nnz+nnz];
-				inNeuCooRow  = new int [current_nnz+nnz];
-				inNeuCooCol  = new int [current_nnz+nnz];
+				inNeuCooRow  = new unsigned char [current_nnz+nnz];
+				inNeuCooCol  = new unsigned char [current_nnz+nnz];
 				
 				memcpy(inNeuCooData , tmp_inNeuCooData ,sizeof(int)*current_nnz);
-				memcpy(inNeuCooRow  , tmp_inNeuCooRow  ,sizeof(int)*current_nnz);
-				memcpy(inNeuCooCol  , tmp_inNeuCooCol  ,sizeof(int)*current_nnz);
+				memcpy(inNeuCooRow  , tmp_inNeuCooRow  ,sizeof(unsigned char)*current_nnz);
+				memcpy(inNeuCooCol  , tmp_inNeuCooCol  ,sizeof(unsigned char)*current_nnz);
 		}
 
 		ifs >> str;
@@ -246,7 +262,7 @@ void initCoo()
 		current_nnz=current_nnz+nnz;
 		
 	}
-	
+	inNeuCooNNZ[FMDEPTH] = current_nnz;
 	ifs.close();
 	
 	
@@ -298,3 +314,31 @@ int timespec_diff_us(timespec& t1, timespec& t2)
 {                                                                                
   return (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_nsec - t1.tv_nsec) / 1e3;        
 } 
+
+void initGPU(){
+	 
+	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1)))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooData, sizeof(int)* inNeuCooNNZ[FMDEPTH]))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooNNZ,   sizeof(int)* (FILTNUM* FMDEPTH+ 1)))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_outGPU, 	  	sizeof(int)* (FILTNUM * FMSIZE/3 * FMSIZE/3)))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_outNeu, 	  	sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
+	
+	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooNNZ,  inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1),  							cudaMemcpyHostToDevice))<< endl;
+	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooData, inNeuCooData, sizeof(int)* inNeuCooNNZ[FMDEPTH], 					cudaMemcpyHostToDevice))<< endl;
+	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooRow,  inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
+	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooCol,  inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
+	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooNNZ,   filtCooNNZ,   sizeof(int)* (FILTNUM* FMDEPTH+ 1),  					cudaMemcpyHostToDevice))<< endl;
+	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooData,  filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH], 	   		cudaMemcpyHostToDevice))<< endl;
+	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooRow,   filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
+	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooCol,   filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
+	
+	cout<< cudaGetErrorString(cudaMemset(dev_outNeu, 0, sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
+	//cout<< "End of GPU initialization" << endl<< endl;
+}
+
+
