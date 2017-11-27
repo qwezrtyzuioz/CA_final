@@ -135,7 +135,7 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	
 	for(int i = 0; i< fm_nnz; ++i){
 		
-		offset= fm_row[i]* 31+ fm_col[i];
+		offset= int(fm_row[i])* 31+ int(fm_col[i]);
 		
 		for(int j = 0; j< filt_nnz; ++j){
 			atomicAdd(&out_neu_slice[offset+ filt_row[j]* 31+ filt_col[j]], fm_data[i]* filt_data[j]);
@@ -146,7 +146,7 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	
 	if(tid< FMSIZE){
 		for(int i = 0; i< FMSIZE; ++i){
-			dev_outNeu[bid* FMSIZE* FMSIZE+ tid* FMSIZE+ i]= out_neu_slice[(tid+ 2)* FMSIZE+ i+ 2];
+			dev_outNeu[bid* FMSIZE* FMSIZE+ tid* FMSIZE+ i]= out_neu_slice[(tid+ 2)* 31+ i+ 2];
 		}
 	}
     
@@ -231,28 +231,28 @@ int main()
 	cout << "CPU time for executing a typical convolutional layer = "  <<  ((float)convLayerCPUExecTime)/1000 << "ms" << endl;
 
 	//Check GPU connection
-	//cout<< endl;
-	//
-	//const int num=100;
-    //int* g;
-    //
-    //int a[num], b[num];
-    //for(int k=0; k<num; k++){
-    //        a[k]=k;
-    //        b[k]=0;
-    //}
-	//
-    //cout<< "cudaMalloc : "<< cudaGetErrorString(cudaMalloc((void**) &g, sizeof(int)*num))<< endl;
-    //cout<< "cudaMemcpy a => g : "<< cudaGetErrorString(cudaMemcpy(g, a, sizeof(int)*num, cudaMemcpyHostToDevice))<< endl;
-    //cout<< "cudaMemcpy g => b : "<< cudaGetErrorString(cudaMemcpy(b, g, sizeof(int)*num, cudaMemcpyDeviceToHost)) << endl;
-    //
-    //for(int k=0; k<num; k++){
-    //        if(a[k]!=b[k]){
-    //                cout << "Fail to ";
-    //                break;
-    //        }
-    //}
-    //cout<< "Connect"<< endl<< endl;
+	cout<< endl;
+	
+	const int num=100;
+    int* g;
+    
+    int a[num], b[num];
+    for(int k=0; k<num; k++){
+            a[k]=k;
+            b[k]=0;
+    }
+	
+    cout<< "cudaMalloc : "<< cudaGetErrorString(cudaMalloc((void**) &g, sizeof(int)*num))<< endl;
+    cout<< "cudaMemcpy a => g : "<< cudaGetErrorString(cudaMemcpy(g, a, sizeof(int)*num, cudaMemcpyHostToDevice))<< endl;
+    cout<< "cudaMemcpy g => b : "<< cudaGetErrorString(cudaMemcpy(b, g, sizeof(int)*num, cudaMemcpyDeviceToHost)) << endl;
+    
+    for(int k=0; k<num; k++){
+            if(a[k]!=b[k]){
+                    cout << "Fail to ";
+                    break;
+            }
+    }
+    cout<< "Connect"<< endl<< endl;
 
 	//Convolution by GPU   
 	clock_gettime(CLOCK_REALTIME, &time_begin);
