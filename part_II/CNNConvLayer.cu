@@ -85,15 +85,16 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	int 
 		index,
 		offset,
+		fm_offset,
 		filt_nnz,
 		fm_nnz,
 		filt_data[18],
-		fm_data[390];
+		fm_data;
 	unsigned char 
 		filt_row[18],
 		filt_col[18],
-		fm_row[390],
-		fm_col[390];
+		fm_row,
+		fm_col;
 		
 	//------------------------------------------------------------------------------
 	//	Local memory initialization
@@ -125,20 +126,18 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 		filt_data[i]= dev_filtCooData[index];
 	}
 	
-	offset= dev_inNeuCooNNZ[tid];
-	for(int i= 0; i< fm_nnz; ++i){
-		index= i+ offset;
-		fm_row[i]= int(dev_inNeuCooRow[index]);
-		fm_col[i]= int(dev_inNeuCooCol[index]);
-		fm_data[i]= dev_inNeuCooData[index];
-	}
 	
+	fm_offset= dev_inNeuCooNNZ[tid];
 	for(int i = 0; i< fm_nnz; ++i){
+		index= fm_offset+ i;
+		fm_row= int(dev_inNeuCooRow[index]);
+		fm_col= int(dev_inNeuCooCol[index]);
+		fm_data= dev_inNeuCooData[index];
 		
-		offset= int(fm_row[i])* 31+ int(fm_col[i]);
+		offset= int(fm_row)* 31+ int(fm_col);
 		
 		for(int j = 0; j< filt_nnz; ++j){
-			atomicAdd(&out_neu_slice[offset+ filt_row[j]* 31+ filt_col[j]], fm_data[i]* filt_data[j]);
+			atomicAdd(&out_neu_slice[offset+ filt_row[j]* 31+ filt_col[j]], fm_data* filt_data[j]);
 		}
 	}
 	

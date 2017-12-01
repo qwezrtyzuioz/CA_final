@@ -59,7 +59,7 @@ void init()
 	int outVol = FILTNUM * FMSIZE/3 * FMSIZE/3;
 	
 	inNeu = new int[FMSIZE*FMSIZE*FMDEPTH]();
-	ifs.open("data/neuron.txt", ifstream::in);
+	ifs.open("data/neuron(new).txt", ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the neurons input file\n";
 	}
@@ -196,7 +196,7 @@ void initCoo()
 	current_nnz=0;
 	inNeuCooNNZ = new int [FMDEPTH+ 1];
 
-	ifs.open("data/neuron_COO.txt", ifstream::in);
+	ifs.open("data/neuron_COO(new).txt", ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the neurons input file\n";
 		exit(-1);
