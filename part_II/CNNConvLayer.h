@@ -337,7 +337,7 @@ void initGPU(){
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooRow,   filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooCol,   filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
 	
-	cout<< cudaGetErrorString(cudaMemset(dev_outNeu, 0, sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
+	//cout<< cudaGetErrorString(cudaMemset(dev_outNeu, 0, sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
 	//cout<< "End of GPU initialization" << endl<< endl;
 }
 
