@@ -13,7 +13,7 @@ void convLayerCPU()
 	int filtVol  = FMDEPTH  * FILTSIZE * FILTSIZE;
 	int fmArea   = FMSIZE   * FMSIZE;
 	int filtArea = FILTSIZE * FILTSIZE;
-	int outArea  = FMSIZE/3 * FMSIZE/3;
+	int outArea  = (FMSIZE/3) * (FMSIZE/3);
 	int sum;
 	// Convolution
 	for(fn = 0; fn < FILTNUM; fn++){
@@ -59,7 +59,7 @@ void convLayerCPU()
 							max = tmpVal;
 					}
 				}
-				outIdx = sli*outArea + fmy*FMSIZE/3 + fmx;
+				outIdx = sli*outArea + fmy*(FMSIZE/3) + fmx;
 				outCPU[outIdx] = max;
 			}
 		}
@@ -81,29 +81,32 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	
 	const int
 		bid= blockIdx.x,
-		tid= threadIdx.x;
+		tid= threadIdx.x,
+		PAD_WIDTH= FILTSIZE/2,
+		PAD_SIZE= FMSIZE+ PAD_WIDTH* 2;
 	int 
 		index,
 		offset,
+		fm_offset,
 		filt_nnz,
 		fm_nnz,
-		filt_data[18],
-		fm_data[390];
+		filt_data[9],
+		fm_data;
 	unsigned char 
-		filt_row[18],
-		filt_col[18],
-		fm_row[390],
-		fm_col[390];
+		filt_row[9],
+		filt_col[9],
+		fm_row,
+		fm_col;
 		
 	//------------------------------------------------------------------------------
 	//	Local memory initialization
 	//------------------------------------------------------------------------------
 	
-	__shared__ int out_neu_slice[31* 31];
+	__shared__ int out_neu_slice[PAD_SIZE* PAD_SIZE];
 	
-	if(tid< 31){
-		for(int i= 0; i<31; ++i){
-			out_neu_slice[tid* 31+ i]= 0;
+	if(tid< PAD_SIZE){
+		for(int i= 0; i<PAD_SIZE; ++i){
+			out_neu_slice[tid* PAD_SIZE+ i]= 0;
 		}
 	}
 	
@@ -120,25 +123,23 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	offset= dev_filtCooNNZ[bid* FMDEPTH+ tid];
 	for(int i= 0; i< filt_nnz; ++i){
 		index= i+ offset;
-		filt_row[i]= 4- int(dev_filtCooRow[index]);
-		filt_col[i]= 4- int(dev_filtCooCol[index]);
+		filt_row[i]= FILTSIZE- 1- int(dev_filtCooRow[index]);
+		filt_col[i]= FILTSIZE- 1- int(dev_filtCooCol[index]);
 		filt_data[i]= dev_filtCooData[index];
 	}
 	
-	offset= dev_inNeuCooNNZ[tid];
-	for(int i= 0; i< fm_nnz; ++i){
-		index= i+ offset;
-		fm_row[i]= int(dev_inNeuCooRow[index]);
-		fm_col[i]= int(dev_inNeuCooCol[index]);
-		fm_data[i]= dev_inNeuCooData[index];
-	}
 	
+	fm_offset= dev_inNeuCooNNZ[tid];
 	for(int i = 0; i< fm_nnz; ++i){
+		index= fm_offset+ i;
+		fm_row= int(dev_inNeuCooRow[index]);
+		fm_col= int(dev_inNeuCooCol[index]);
+		fm_data= dev_inNeuCooData[index];
 		
-		offset= int(fm_row[i])* 31+ int(fm_col[i]);
+		offset= int(fm_row)* PAD_SIZE+ int(fm_col);
 		
 		for(int j = 0; j< filt_nnz; ++j){
-			atomicAdd(&out_neu_slice[offset+ filt_row[j]* 31+ filt_col[j]], fm_data[i]* filt_data[j]);
+			atomicAdd(&out_neu_slice[offset+ filt_row[j]* PAD_SIZE+ filt_col[j]], fm_data* filt_data[j]);
 		}
 	}
 	
@@ -146,7 +147,7 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	
 	if(tid< FMSIZE){
 		for(int i = 0; i< FMSIZE; ++i){
-			dev_outNeu[bid* FMSIZE* FMSIZE+ tid* FMSIZE+ i]= out_neu_slice[(tid+ 2)* 31+ i+ 2];
+			dev_outNeu[bid* FMSIZE* FMSIZE+ tid* FMSIZE+ i]= out_neu_slice[(tid+ PAD_WIDTH)* PAD_SIZE+ i+ PAD_WIDTH];
 		}
 	}
     
@@ -171,7 +172,7 @@ void Activation_Pooling_GPU(int* dev_outNeu, int* dev_outGPU){
 	//   Activation - ReLU
 	// ------------------------------------------------------------------------------
 	/* 
-	 * Use 27 thread to do ReLU. Each thread scan through a row
+	 * Use 28 thread to do ReLU. Each thread scan through a row
 	 */
 	
 	if( tid < FMSIZE) {	
@@ -199,21 +200,14 @@ void Activation_Pooling_GPU(int* dev_outNeu, int* dev_outGPU){
 	
 	for (j = 0 ; j < 3 ; ++j) { 
 		for (int k = 0 ; k < 3 ; ++k) {
-			if (dev_outNeu[ offset + j*FMSIZE + k ]>=max) {
-				max = dev_outNeu[ offset + j * FMSIZE + k ];
+			if (dev_outNeu[offset + j* FMSIZE + k]>=max) {
+				max = dev_outNeu[offset + j* FMSIZE + k];
 			}
 		}	
 	}
-	dev_outGPU[bid * out_area + tid] = max;
+	dev_outGPU[bid* out_area+ tid] = max;
 }
-
-
-
-
 /***	Implement your CUDA Kernel here	***/
-
-
-
 
 int main()
 {
@@ -229,38 +223,15 @@ int main()
 	clock_gettime(CLOCK_REALTIME, &time_end);
 	convLayerCPUExecTime = timespec_diff_us(time_begin, time_end);
 	cout << "CPU time for executing a typical convolutional layer = "  <<  ((float)convLayerCPUExecTime)/1000 << "ms" << endl;
-
-	//Check GPU connection
-	cout<< endl;
-	
-	const int num=100;
-    int* g;
-    
-    int a[num], b[num];
-    for(int k=0; k<num; k++){
-            a[k]=k;
-            b[k]=0;
-    }
-	
-    cout<< "cudaMalloc : "<< cudaGetErrorString(cudaMalloc((void**) &g, sizeof(int)*num))<< endl;
-    cout<< "cudaMemcpy a => g : "<< cudaGetErrorString(cudaMemcpy(g, a, sizeof(int)*num, cudaMemcpyHostToDevice))<< endl;
-    cout<< "cudaMemcpy g => b : "<< cudaGetErrorString(cudaMemcpy(b, g, sizeof(int)*num, cudaMemcpyDeviceToHost)) << endl;
-    
-    for(int k=0; k<num; k++){
-            if(a[k]!=b[k]){
-                    cout << "Fail to ";
-                    break;
-            }
-    }
-    cout<< "Connect"<< endl<< endl;
-
-	//Convolution by GPU   
-	clock_gettime(CLOCK_REALTIME, &time_begin);
-	/***	Lunch your CUDA Kernel here	***/
 	
 	initGPU();
 	dim3 numBlocks(FILTNUM);
 	dim3 threadsPerBlock(FMDEPTH);
+	
+	//Convolution by GPU   
+	clock_gettime(CLOCK_REALTIME, &time_begin);
+	/***	Lunch your CUDA Kernel here	***/
+
 	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_inNeuCooNNZ, dev_inNeuCooRow, 
 												dev_inNeuCooCol, dev_inNeuCooData, 
 												dev_filtCooNNZ, dev_filtCooRow, 
@@ -269,24 +240,24 @@ int main()
     
 	cudaDeviceSynchronize();
 	
-	Activation_Pooling_GPU<<<FILTNUM, 81>>>(dev_outNeu, dev_outGPU);
-	cudaMemcpy(outGPU, dev_outGPU,
-			sizeof(int)* FILTNUM * FMSIZE/3 * FMSIZE/3,
-			cudaMemcpyDeviceToHost);
+	Activation_Pooling_GPU<<<FILTNUM, (FMSIZE/3) * (FMSIZE/3)>>>(dev_outNeu, dev_outGPU);
+	
+	cout<< cudaGetErrorString(cudaMemcpy(outGPU, dev_outGPU,
+								sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3)),
+								cudaMemcpyDeviceToHost))<<endl;
 			
-	//int* test= new int[sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)];
-	//cout<< cudaGetErrorString(cudaMemcpy(test, dev_outNeu, sizeof(int)* (FILTNUM * FMSIZE/3 * FMSIZE/3), cudaMemcpyDeviceToHost))<<endl;
+	int* test= new int[sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)];
+	cout<< cudaGetErrorString(cudaMemcpy(test, dev_outNeu, sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3)), cudaMemcpyDeviceToHost))<<endl;
 	
 	//unsigned char* test= new unsigned char[inNeuCooNNZ[FMDEPTH]];
 	//cout<< cudaGetErrorString(cudaMemcpy(test, dev_inNeuCooRow, sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH], cudaMemcpyDeviceToHost))<<endl;
 	//	
 	//
-	//cout<< endl;
-	//for(int i= 0; i< 100; ++i){
-	//	cout<< int(test[i])<< " ";
-	//	cout<< int(inNeuCooRow[i]) << "  ";
-	//}
-	//cout<<endl;
+	cout<< endl;
+
+	for(int i = 0; i< 100; ++i)
+		cout<< outCPU[i]<< " ";
+	cout<<endl;
 	
 	cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 	

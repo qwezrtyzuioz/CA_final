@@ -4,10 +4,10 @@
 #include <string>
 using namespace std;
 
-#define FMSIZE 27
-#define FMDEPTH 96
-#define FILTSIZE 5
-#define FILTNUM 128
+#define FMSIZE 28
+#define FMDEPTH 192
+#define FILTSIZE 3
+#define FILTNUM 256
 #define STRIDE 1
 
 int*inNeu;
@@ -42,11 +42,13 @@ unsigned char *dev_filtCooRow;
 unsigned char *dev_filtCooCol;
 int *dev_filt;
 int *dev_outGPU; 	  
-int *dev_outNeu; 
-//const int GPU_outNeuVol = FILTNUM * (FMSIZE+ 4) * (FMSIZE+ 4);
+int *dev_outNeu;
 
-
-	  
+string 
+	filt_path= "data/filter.txt",
+	neur_path= "data/neuron.txt",
+	filt_COO_path= "data/filt_COO_irregular.txt",
+	neur_COO_path= "data/neuron_COO_irregular.txt";
 
 void init()
 {
@@ -59,7 +61,7 @@ void init()
 	int outVol = FILTNUM * FMSIZE/3 * FMSIZE/3;
 	
 	inNeu = new int[FMSIZE*FMSIZE*FMDEPTH]();
-	ifs.open("data/neuron(new).txt", ifstream::in);
+	ifs.open(neur_path.c_str(), ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the neurons input file\n";
 	}
@@ -78,7 +80,7 @@ void init()
 				
 		
 	filt = new int[FILTSIZE*FILTSIZE*FMDEPTH*FILTNUM]();
-	ifs.open("data/filter.txt", ifstream::in);
+	ifs.open(filt_path.c_str(), ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the filters input file\n";
 	}
@@ -113,7 +115,7 @@ void initCoo()
 
 	filtCooNNZ = new int [FILTNUM* FMDEPTH+ 1];
 
-	ifs.open("data/filter_COO.txt", ifstream::in);
+	ifs.open(filt_COO_path.c_str(), ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the filters input file\n";
 		exit(-1);
@@ -196,7 +198,7 @@ void initCoo()
 	current_nnz=0;
 	inNeuCooNNZ = new int [FMDEPTH+ 1];
 
-	ifs.open("data/neuron_COO(new).txt", ifstream::in);
+	ifs.open(neur_COO_path.c_str(), ifstream::in);
 	if(!ifs.is_open()){
 		cout << "Can not open the neurons input file\n";
 		exit(-1);
@@ -325,7 +327,7 @@ void initGPU(){
 	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
-	cout<< cudaGetErrorString(cudaMalloc(&dev_outGPU, 	  	sizeof(int)* (FILTNUM * FMSIZE/3 * FMSIZE/3)))<< endl;
+	cout<< cudaGetErrorString(cudaMalloc(&dev_outGPU, 	  	sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3))))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_outNeu, 	  	sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
 	
 	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooNNZ,  inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1),  							cudaMemcpyHostToDevice))<< endl;
@@ -337,8 +339,6 @@ void initGPU(){
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooRow,   filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooCol,   filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
 	
-	cout<< cudaGetErrorString(cudaMemset(dev_outNeu, 0, sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
+	//cout<< cudaGetErrorString(cudaMemset(dev_outNeu, 0, sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
 	//cout<< "End of GPU initialization" << endl<< endl;
 }
-
-
