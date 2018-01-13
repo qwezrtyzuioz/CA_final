@@ -156,7 +156,6 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 		
 		for(int j = 0; j< filt_nnz; ++j){
 			atomicAdd(&out_neu_slice[offset+ filt_row[j]* PAD_SIZE+ filt_col[j]], fm_data* filt_data[j]);
-			//out_neu_slice[offset+ filt_row[j]* PAD_SIZE+ filt_col[j]]+= fm_data* filt_data[j];
 		}
 	}
 	
@@ -166,9 +165,9 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	//   Put the value in share memory back to global memory.
 	// ------------------------------------------------------------------------------
 	
-	if(tid< FMSIZE){
-		for(int i = 0; i< FMSIZE; ++i){
-			dev_outNeu[bid* FMSIZE* FMSIZE+ tid* FMSIZE+ i]= out_neu_slice[(tid+ PAD_WIDTH)* PAD_SIZE+ i+ PAD_WIDTH];
+	if(tid< 112){
+		for(int i = 0; i< 7; ++i){
+			dev_outNeu[bid* FMSIZE* FMSIZE+ i* 112+ tid]= out_neu_slice[(i* 4+ tid/ FMSIZE+ PAD_WIDTH)* PAD_SIZE+ (tid% FMSIZE)+ PAD_WIDTH];
 		}
 	}
     
