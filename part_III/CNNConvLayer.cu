@@ -68,10 +68,8 @@ void convLayerCPU()
 
 /***	Implement your CUDA Kernel here	***/
 __global__
-void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow, 
-					unsigned char* dev_inNeuCooCol, int* dev_inNeuCooData, 
-					int* dev_filtCooNNZ, unsigned char* dev_filtCooRow, 
-					unsigned char* dev_filtCooCol, int* dev_filtCooData,
+void convLayerGPU(int* dev_inNeuCooNNZ, int* dev_inNeuCooData, 
+					int* dev_filtCooNNZ, int* dev_filtCooData,
 					int* dev_outGPU, int* dev_outNeu)
 {
 	
@@ -85,14 +83,16 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 		PAD_WIDTH= FILTSIZE/2,
 		PAD_SIZE= FMSIZE+ PAD_WIDTH* 2;
 	int 
-		index,
 		offset,
 		fm_offset,
 		filt_nnz,
 		fm_nnz,
+		col_mask= 0x1F,
+		row_mask= 0x3E0,
+		tmp;
+	char
 		filt_data[9],
-		fm_data,
-		iter;
+		fm_data;
 	unsigned char 
 		filt_row[9],
 		filt_col[9],
@@ -132,11 +132,11 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	// Put all non-zero term of filters to local memory.
 	offset= dev_filtCooNNZ[bid* FMDEPTH+ tid];
 	for(int i= 0; i< filt_nnz; ++i){
-		index= i+ offset;
+		tmp= dev_filtCooData[i+ offset];
 		// Filp the coordinate of filters.
-		filt_row[i]= FILTSIZE- 1- dev_filtCooRow[index];
-		filt_col[i]= FILTSIZE- 1- dev_filtCooCol[index];
-		filt_data[i]= dev_filtCooData[index];
+		filt_row[i]= 2- ((tmp& row_mask)>> 5);
+		filt_col[i]= 2- tmp& col_mask;
+		filt_data[i]= (tmp>> 10)- 10000;
 	}
 	
 	// ------------------------------------------------------------------------------
@@ -145,11 +145,10 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	
 	fm_offset= dev_inNeuCooNNZ[tid];
 	for(int i = 0; i< fm_nnz; ++i){
-		//iter= (i+ tid)% fm_nnz;
-		index= fm_offset+ i;
-		fm_row= dev_inNeuCooRow[index];
-		fm_col= dev_inNeuCooCol[index];
-		fm_data= dev_inNeuCooData[index];
+		tmp= dev_inNeuCooData[fm_offset+ i];
+		fm_row= ((tmp& row_mask)>> 5);
+		fm_col= tmp& col_mask;
+		fm_data= (tmp>> 10)- 10000;
 		
 		
 		offset= fm_row* PAD_SIZE+ fm_col;
@@ -251,33 +250,14 @@ int main()
 	//Convolution by GPU   
 	clock_gettime(CLOCK_REALTIME, &time_begin);
 	/***	Lunch your CUDA Kernel here	***/
-	cout<< inNeuCooNNZ[FMDEPTH]<< endl;
-	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_inNeuCooNNZ, dev_inNeuCooRow, 
-												dev_inNeuCooCol, dev_inNeuCooData, 
-												dev_filtCooNNZ, dev_filtCooRow, 
-												dev_filtCooCol, dev_filtCooData,
+	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_inNeuCooNNZ, dev_inNeuCooData, 
+												dev_filtCooNNZ, dev_filtCooData,
 												dev_outGPU, dev_outNeu);
     
 	cudaDeviceSynchronize();
 	
 	Activation_Pooling_GPU<<<FILTNUM, (FMSIZE/3) * (FMSIZE/3)>>>(dev_outNeu, dev_outGPU);
-	
-	
-	//int* test= new int[sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)];
-	//cout<< cudaGetErrorString(cudaMemcpy(test, dev_outNeu, sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3)), cudaMemcpyDeviceToHost))<<endl;
-	
-	//unsigned char* test= new unsigned char[inNeuCooNNZ[FMDEPTH]];
-	//cout<< cudaGetErrorString(cudaMemcpy(test, dev_inNeuCooRow, sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH], cudaMemcpyDeviceToHost))<<endl;
-	//	
-	//
-	//cout<< endl;
-    //
-	//for(int i = 0; i< 100; ++i)
-	//	cout<< outCPU[i]<< " ";
-	//cout<<endl;
-	//
-	//cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
-	
+
 	
 	/***	Lunch your CUDA Kernel here	***/
 	clock_gettime(CLOCK_REALTIME, &time_end);

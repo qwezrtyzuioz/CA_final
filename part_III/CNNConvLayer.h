@@ -122,7 +122,6 @@ void initCoo()
 	}
 	current_nnz=0;
 	
-	
 	for(i = 0; i < FILTNUM; i++){
 		ifs >> str; 
 		for(j = 0; j < FMDEPTH; j++){
@@ -176,6 +175,16 @@ void initCoo()
 				ifs >>  tmp;
 				idx = current_nnz+ k;
 				filtCooCol[idx] = tmp;
+			}
+			
+			for(k = 0; k < nnz; k++){
+				idx = current_nnz + k;
+				filtCooData[idx]+= 10000;
+				filtCooData[idx]= filtCooData[idx]<< 5;
+				filtCooData[idx]+= filtCooRow[idx];
+				filtCooData[idx]= filtCooData[idx]<< 5;
+				filtCooData[idx]+= filtCooCol[idx];
+				
 			}
 	
 			// cout << "filtCooNNZ[" << i*FMDEPTH + j << "] =" << filtCooNNZ[i*FMDEPTH + j] << endl;
@@ -254,6 +263,15 @@ void initCoo()
 			inNeuCooCol[idx] = tmp;
 		}
 		
+		for(j = 0; j < nnz; j++){
+			idx = current_nnz + j;
+			inNeuCooData[idx]+= 10000;
+			inNeuCooData[idx]= inNeuCooData[idx]<< 5;
+			inNeuCooData[idx]+= inNeuCooRow[idx];
+			inNeuCooData[idx]= inNeuCooData[idx]<< 5;
+			inNeuCooData[idx]+= inNeuCooCol[idx];
+		}
+		
 		// cout << "inNeuCooNNZ[" << i << "] =" << inNeuCooNNZ[i] << endl;
 		// for(k = 0; k < nnz; k++){
 			// cout << "inNeuCooData[" << current_nnz+k << "] =" << inNeuCooData[current_nnz+k] << endl;
@@ -320,24 +338,24 @@ int timespec_diff_us(timespec& t1, timespec& t2)
 void initGPU(){
 	 
 	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1)))<< endl;
-	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
-	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
+	//cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
+	//cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooData, sizeof(int)* inNeuCooNNZ[FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooNNZ,   sizeof(int)* (FILTNUM* FMDEPTH+ 1)))<< endl;
-	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
-	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
+	//cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
+	//cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_outGPU, 	  	sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3))))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_outNeu, 	  	sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
 	
 	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooNNZ,  inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1),  							cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooData, inNeuCooData, sizeof(int)* inNeuCooNNZ[FMDEPTH], 					cudaMemcpyHostToDevice))<< endl;
-	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooRow,  inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
-	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooCol,  inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
+	//cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooRow,  inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
+	//cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooCol,  inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooNNZ,   filtCooNNZ,   sizeof(int)* (FILTNUM* FMDEPTH+ 1),  					cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooData,  filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH], 	   		cudaMemcpyHostToDevice))<< endl;
-	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooRow,   filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
-	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooCol,   filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
+	//cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooRow,   filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
+	//cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooCol,   filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
 	
 	//cout<< cudaGetErrorString(cudaMemset(dev_outNeu, 0, sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
 	//cout<< "End of GPU initialization" << endl<< endl;
