@@ -1,6 +1,7 @@
 // This program executes a typical convolutional layer in regular CNNs.Neuron sparsity(zero ratio) is 50% and Weight sparsity is 70%.
 #include <iostream>
 #include "CNNConvLayer.h"
+
 using namespace std;
 
 // This is the CPU version, please don't modify it
@@ -126,13 +127,13 @@ void convLayerGPU(int* dev_inNeuCooNNZ, int* dev_inNeuCooData,
 	 */
 	
 	// Extract number of non-zero terms of feature maps and filters.
-	filt_nnz= dev_filtCooNNZ[bid* FMDEPTH+ tid+ 1]- dev_filtCooNNZ[bid* FMDEPTH+ tid];
-	fm_nnz= dev_inNeuCooNNZ[tid+ 1]- dev_inNeuCooNNZ[tid];
+	filt_nnz= tex1Dfetch(filt_nnz_tex, bid* FMDEPTH+ tid+ 1)- tex1Dfetch(filt_nnz_tex, bid* FMDEPTH+ tid);
+	fm_nnz= tex1Dfetch(neu_nnz_tex, tid+ 1)- tex1Dfetch(neu_nnz_tex, tid);
 	
 	// Put all non-zero term of filters to local memory.
 	offset= dev_filtCooNNZ[bid* FMDEPTH+ tid];
 	for(int i= 0; i< filt_nnz; ++i){
-		tmp= dev_filtCooData[i+ offset];
+		tmp= tex1Dfetch(filtCooData_tex, i+ offset);
 		// Filp the coordinate of filters.
 		filt_row[i]= 2- ((tmp& row_mask)>> 5);
 		filt_col[i]= 2- tmp& col_mask;
@@ -145,7 +146,7 @@ void convLayerGPU(int* dev_inNeuCooNNZ, int* dev_inNeuCooData,
 	
 	fm_offset= dev_inNeuCooNNZ[tid];
 	for(int i = 0; i< fm_nnz; ++i){
-		tmp= dev_inNeuCooData[fm_offset+ i];
+		tmp= tex1Dfetch(inNeuCooData_tex, fm_offset+ i);
 		fm_row= ((tmp& row_mask)>> 5);
 		fm_col= tmp& col_mask;
 		fm_data= (tmp>> 10)- 10000;

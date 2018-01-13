@@ -50,6 +50,11 @@ string
 	filt_COO_path= "data/filt_COO_irregular.txt",
 	neur_COO_path= "data/neuron_COO_irregular.txt";
 
+texture<int, 1,cudaReadModeElementType> filt_nnz_tex;
+texture<int, 1,cudaReadModeElementType> filtCooData_tex;
+texture<int, 1,cudaReadModeElementType> neu_nnz_tex;
+texture<int, 1,cudaReadModeElementType> inNeuCooData_tex;
+	
 void init()
 {
 	ifstream ifs;
@@ -338,25 +343,23 @@ int timespec_diff_us(timespec& t1, timespec& t2)
 void initGPU(){
 	 
 	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1)))<< endl;
-	//cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
-	//cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_inNeuCooData, sizeof(int)* inNeuCooNNZ[FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooNNZ,   sizeof(int)* (FILTNUM* FMDEPTH+ 1)))<< endl;
-	//cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
-	//cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH]))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_outGPU, 	  	sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3))))<< endl;
 	cout<< cudaGetErrorString(cudaMalloc(&dev_outNeu, 	  	sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
 	
 	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooNNZ,  inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1),  							cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooData, inNeuCooData, sizeof(int)* inNeuCooNNZ[FMDEPTH], 					cudaMemcpyHostToDevice))<< endl;
-	//cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooRow,  inNeuCooRow,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
-	//cout<< cudaGetErrorString(cudaMemcpy(dev_inNeuCooCol,  inNeuCooCol,  sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH],  			cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooNNZ,   filtCooNNZ,   sizeof(int)* (FILTNUM* FMDEPTH+ 1),  					cudaMemcpyHostToDevice))<< endl;
 	cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooData,  filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH], 	   		cudaMemcpyHostToDevice))<< endl;
-	//cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooRow,   filtCooRow,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
-	//cout<< cudaGetErrorString(cudaMemcpy(dev_filtCooCol,   filtCooCol,   sizeof(unsigned char)* filtCooNNZ[FILTNUM* FMDEPTH],  	cudaMemcpyHostToDevice))<< endl;
+
 	
-	//cout<< cudaGetErrorString(cudaMemset(dev_outNeu, 0, sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)))<< endl;
-	//cout<< "End of GPU initialization" << endl<< endl;
+	cudaBindTexture(0, filt_nnz_tex,   	 dev_filtCooNNZ,   sizeof(int)* (FILTNUM* FMDEPTH+ 1));
+	cudaBindTexture(0, filtCooData_tex,  dev_filtCooData,  sizeof(int)* filtCooNNZ[FILTNUM* FMDEPTH]);
+	cudaBindTexture(0, neu_nnz_tex,		 dev_inNeuCooNNZ,  sizeof(int)* (FMDEPTH+ 1));
+	cudaBindTexture(0, inNeuCooData_tex, dev_inNeuCooData, sizeof(int)* inNeuCooNNZ[FMDEPTH]);
 }
+
+
+
