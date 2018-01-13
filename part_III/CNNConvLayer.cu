@@ -91,7 +91,8 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 		filt_nnz,
 		fm_nnz,
 		filt_data[9],
-		fm_data;
+		fm_data,
+		iter;
 	unsigned char 
 		filt_row[9],
 		filt_col[9],
@@ -99,9 +100,12 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 		fm_col;
 		
 	//------------------------------------------------------------------------------
-	//	Local memory initialization
+	//	Share memory initialization
 	//------------------------------------------------------------------------------
-	
+	/*
+	 * Clear share memory to zero.
+	 */
+
 	__shared__ int out_neu_slice[PAD_SIZE* PAD_SIZE];
 	
 	if(tid< PAD_SIZE){
@@ -115,35 +119,52 @@ void convLayerGPU(int* dev_inNeuCooNNZ, unsigned char* dev_inNeuCooRow,
 	// ------------------------------------------------------------------------------
 	//   Local memory initialization
 	// ------------------------------------------------------------------------------
+	/*
+	 * 1. Extract number of non-zero terms of feature maps and filters.
+	 * 2. Put all non-zero term of filters to local memory.
+	 * 3. Filp the coordinate of filters.
+	 */
 	
+	// Extract number of non-zero terms of feature maps and filters.
 	filt_nnz= dev_filtCooNNZ[bid* FMDEPTH+ tid+ 1]- dev_filtCooNNZ[bid* FMDEPTH+ tid];
 	fm_nnz= dev_inNeuCooNNZ[tid+ 1]- dev_inNeuCooNNZ[tid];
 	
-	
+	// Put all non-zero term of filters to local memory.
 	offset= dev_filtCooNNZ[bid* FMDEPTH+ tid];
 	for(int i= 0; i< filt_nnz; ++i){
 		index= i+ offset;
-		filt_row[i]= FILTSIZE- 1- int(dev_filtCooRow[index]);
-		filt_col[i]= FILTSIZE- 1- int(dev_filtCooCol[index]);
+		// Filp the coordinate of filters.
+		filt_row[i]= FILTSIZE- 1- dev_filtCooRow[index];
+		filt_col[i]= FILTSIZE- 1- dev_filtCooCol[index];
 		filt_data[i]= dev_filtCooData[index];
 	}
 	
+	// ------------------------------------------------------------------------------
+	//   Correlate feature map and filter.
+	// ------------------------------------------------------------------------------
 	
 	fm_offset= dev_inNeuCooNNZ[tid];
 	for(int i = 0; i< fm_nnz; ++i){
+		//iter= (i+ tid)% fm_nnz;
 		index= fm_offset+ i;
-		fm_row= int(dev_inNeuCooRow[index]);
-		fm_col= int(dev_inNeuCooCol[index]);
+		fm_row= dev_inNeuCooRow[index];
+		fm_col= dev_inNeuCooCol[index];
 		fm_data= dev_inNeuCooData[index];
 		
-		offset= int(fm_row)* PAD_SIZE+ int(fm_col);
+		
+		offset= fm_row* PAD_SIZE+ fm_col;
 		
 		for(int j = 0; j< filt_nnz; ++j){
 			atomicAdd(&out_neu_slice[offset+ filt_row[j]* PAD_SIZE+ filt_col[j]], fm_data* filt_data[j]);
+			//out_neu_slice[offset+ filt_row[j]* PAD_SIZE+ filt_col[j]]+= fm_data* filt_data[j];
 		}
 	}
 	
 	__syncthreads();
+	
+	// ------------------------------------------------------------------------------
+	//   Put the value in share memory back to global memory.
+	// ------------------------------------------------------------------------------
 	
 	if(tid< FMSIZE){
 		for(int i = 0; i< FMSIZE; ++i){
@@ -231,7 +252,7 @@ int main()
 	//Convolution by GPU   
 	clock_gettime(CLOCK_REALTIME, &time_begin);
 	/***	Lunch your CUDA Kernel here	***/
-
+	cout<< inNeuCooNNZ[FMDEPTH]<< endl;
 	convLayerGPU<<<numBlocks, threadsPerBlock>>>(dev_inNeuCooNNZ, dev_inNeuCooRow, 
 												dev_inNeuCooCol, dev_inNeuCooData, 
 												dev_filtCooNNZ, dev_filtCooRow, 
@@ -242,24 +263,21 @@ int main()
 	
 	Activation_Pooling_GPU<<<FILTNUM, (FMSIZE/3) * (FMSIZE/3)>>>(dev_outNeu, dev_outGPU);
 	
-	cout<< cudaGetErrorString(cudaMemcpy(outGPU, dev_outGPU,
-								sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3)),
-								cudaMemcpyDeviceToHost))<<endl;
-			
-	int* test= new int[sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)];
-	cout<< cudaGetErrorString(cudaMemcpy(test, dev_outNeu, sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3)), cudaMemcpyDeviceToHost))<<endl;
+	
+	//int* test= new int[sizeof(int)* (FILTNUM * FMSIZE * FMSIZE)];
+	//cout<< cudaGetErrorString(cudaMemcpy(test, dev_outNeu, sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3)), cudaMemcpyDeviceToHost))<<endl;
 	
 	//unsigned char* test= new unsigned char[inNeuCooNNZ[FMDEPTH]];
 	//cout<< cudaGetErrorString(cudaMemcpy(test, dev_inNeuCooRow, sizeof(unsigned char)* inNeuCooNNZ[FMDEPTH], cudaMemcpyDeviceToHost))<<endl;
 	//	
 	//
-	cout<< endl;
-
-	for(int i = 0; i< 100; ++i)
-		cout<< outCPU[i]<< " ";
-	cout<<endl;
-	
-	cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
+	//cout<< endl;
+    //
+	//for(int i = 0; i< 100; ++i)
+	//	cout<< outCPU[i]<< " ";
+	//cout<<endl;
+	//
+	//cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 	
 	
 	/***	Lunch your CUDA Kernel here	***/
@@ -267,6 +285,9 @@ int main()
 	convLayerGPUExecTime = timespec_diff_us(time_begin, time_end);
 	cout << "GPU time for executing a typical convolutional layer = "  << ((float)convLayerGPUExecTime)/1000 << "ms" << endl;
 
+	cout<< cudaGetErrorString(cudaMemcpy(outGPU, dev_outGPU,
+								sizeof(int)* (FILTNUM * (FMSIZE/3) * (FMSIZE/3)),
+								cudaMemcpyDeviceToHost))<<endl;
 	
 	//check the anser from CPU and from GPU
 	if(checker()){
